@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 0.1,
+  "identificationStamp": null,
+  "flags": {
+    "allowCustomUserDisplayNames": false
+  },
+  "rooms": [
+    {
+      "id": "example1",
+      "alias": "#example1:example.org",
+      "active": true,
+      "room_name": "Example Room 1",
+      "invitees": {
+        "@user:server.org": 0,
+        "@special_admin:server.org": 100,
+        "admin_user_group": 100,
+        "mod_user_group": 50
+      },
+      "is_space": false,
+      "parent_spaces": [
+        "parent_space_id",
+        "!fBumzgIydwJHbcLgGN:example.org"
+      ],
+      "topic": "This is an example room for the secretary bot.",
+      "suggested": false,
+      "join_rule": "restricted",
+      "encrypt": false,
+      "actions": [
+        {
+          "template": "rss",
+          "link": "rss-feed-link.de/feed.rss",
+          "status": "open"
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "rss",
+      "bots": [
+        "@rss:t2bot.io"
+      ],
+      "commands": [
+        "!rss subscribe {link}",
+        "!rss subscriptions"
+      ],
+      "sub_actions": [
+        {
+          "template": "some_other_action",
+          "argument": "value"
+        }
+      ]
+    }
+  ],
+  "user_groups": [
+    {
+      "id": "admins",
+      "users": [
+        "@tanesh:example.org",
+        "@wander:example.org"
+      ]
+    }
+  ]
+}

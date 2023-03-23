@@ -1,0 +1,12 @@
+maubot: 0.1.0
+id: org.shukini.maubot.secretary
+version: 0.0.1
+license: MIT
+modules:
+  - secretary
+main_class: Secretary
+config: true
+extra_files:
+  - base-config.yaml
+  - example_policy.json
+database: false
