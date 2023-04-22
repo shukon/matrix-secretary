@@ -5,7 +5,7 @@ from mautrix.api import Method
 
 from secretary import create_room
 from secretary.rooms import delete_room
-from secretary.util import get_example_policies, get_logger, DatabaseEntryNotFoundException, validate_policy
+from secretary.util import get_example_policies, get_logger, DatabaseEntryNotFoundException
 
 
 class MatrixSecretary:
@@ -47,9 +47,12 @@ class MatrixSecretary:
             await self._ensure_room_bot_actions(room_id, room_policy)
 
     async def ensure_policy_destroyed(self, policy_name):
-        # ensure everything related to a policy is deleted (all rooms and users)
-        # and the policy itself is removed from db
-        pass
+        # Get all rooms related to this policy
+        q = "SELECT matrix_room_id FROM rooms WHERE policy_key = $1"
+        rooms = await self.database.fetch(q, policy_name)
+        for room in rooms:
+            await delete_room(self.client, room['matrix_room_id'])
+        await self.forget_policy(policy_name)
 
     async def forget_policy(self, policy_name):
         self.logger.info(f"Removing policy {policy_name} from db")
@@ -139,7 +142,7 @@ class MatrixSecretary:
         row = await self.database.fetchrow(q, policy_key)
         if not row:
             raise DatabaseEntryNotFoundException(f"Could not find {policy_key} in database")
-        json_policy = json.load(row['policy_json'])
+        json_policy = json.loads(row['policy_json'])
         self.logger.info(f"Found policy {policy_key} in db: {json_policy}")
         return json_policy
 

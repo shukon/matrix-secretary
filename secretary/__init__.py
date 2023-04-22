@@ -76,10 +76,10 @@ class Secretary(Plugin):
         await evt.respond("Available policies:\n  " + '\n  '.join(policies))
 
     @sec.subcommand('ensure_policy', help="Create rooms as defined in passed json")
-    @command.argument("policy_name", pass_raw=True, required=True, parser=non_empty_string)
-    async def ensure_policy(self, evt: MessageEvent, policy_name: str) -> None:
+    @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
+    async def ensure_policy(self, evt: MessageEvent, policy_key: str) -> None:
         try:
-            await self.matrix_secretary.ensure_policy(policy_name)
+            await self.matrix_secretary.ensure_policy(policy_key)
             await evt.reply("Policy implemented")
         except Exception as e:
             await log_error(self.matrix_secretary.logger, e, evt=evt)
@@ -99,12 +99,9 @@ class Secretary(Plugin):
     @sec.subcommand('rm_policy', help="Remove policy and optionally delete rooms")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
     @command.argument("delete_rooms", required=False, parser=bool)
-    async def rm_policy(self, evt: MessageEvent, policy_name: str, delete_rooms: Union[bool, None] = False) -> None:
-        if delete_rooms:
-            await self.matrix_secretary.ensure_policy_destroyed(policy_name)
-        else:
-            await self.matrix_secretary.forget_policy(policy_name)
-        await evt.respond(f"Removed policy {policy_name}")
+    async def rm_policy(self, evt: MessageEvent, policy_key: str, delete_rooms: Union[bool, None] = False) -> None:
+        await self.matrix_secretary.ensure_policy_destroyed(policy_key)
+        await evt.respond(f"Removed policy {policy_key}")
 
     @sec.subcommand('clear', help="Clear rooms that this is the only non-bot user in")
     async def clear(self, evt: MessageEvent) -> None:
