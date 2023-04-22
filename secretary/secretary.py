@@ -191,8 +191,7 @@ class MatrixSecretary:
             self.logger.debug(f"Setting room name of {room_id} to {value}")
             req = f"/_matrix/client/r0/rooms/{room_id}/state/m.room.name"
             self.logger.info(req)
-            await self.client.api.request(Method.PUT, req,
-                                          content={'name': value})
+            await self.client.api.request(Method.PUT, req, content={'name': value})
 
     async def _set_room_avatar(self, room_id, value):
         pass
