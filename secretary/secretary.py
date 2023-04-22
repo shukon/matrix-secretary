@@ -197,10 +197,24 @@ class MatrixSecretary:
         pass
 
     async def _set_room_topic(self, room_id, value):
-        pass
+        req = f"/_matrix/client/r0/rooms/{room_id}/state/m.room.topic"
+        self.logger.info(req)
+        room_topic = await self.client.api.request(Method.GET, req)
+        if not room_topic == value:
+            self.logger.debug(f"Setting room topic of {room_id} to {value}")
+            req = f"/_matrix/client/r0/rooms/{room_id}/state/m.room.topic"
+            self.logger.info(req)
+            await self.client.api.request(Method.PUT, req, content={'topic': value})
 
     async def _set_room_join_rule(self, room_id, value):
-        pass
+        req = f"/_matrix/client/r0/rooms/{room_id}/state/m.room.join_rules"
+        self.logger.info(req)
+        room_join_rule = await self.client.api.request(Method.GET, req)
+        if not room_join_rule == value:
+            self.logger.debug(f"Setting room join rule of {room_id} to {value}")
+            req = f"/_matrix/client/r0/rooms/{room_id}/state/m.room.join_rules"
+            self.logger.info(req)
+            await self.client.api.request(Method.PUT, req, content={'join_rule': value})
 
     async def _set_room_history_visibility(self, room_id, value):
         pass
