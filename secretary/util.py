@@ -4,6 +4,7 @@ from typing import Tuple, Any
 
 from secretary.example_policies.minimal_policy import get_minimal_policy
 from secretary.example_policies.nina import get_nina_policy
+from secretary.example_policies.policy_schema import get_schema
 
 
 class PolicyNotFoundError(Exception):

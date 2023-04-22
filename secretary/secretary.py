@@ -5,7 +5,7 @@ from mautrix.api import Method
 
 from secretary import create_room
 from secretary.rooms import delete_room
-from secretary.util import get_example_policies, get_logger, DatabaseEntryNotFoundException
+from secretary.util import get_example_policies, get_logger, DatabaseEntryNotFoundException, validate_policy
 
 
 class MatrixSecretary:
@@ -130,6 +130,7 @@ class MatrixSecretary:
             ON CONFLICT (policy_key) DO UPDATE SET policy_json = excluded.policy_json;
         """
         policy_key = policy['policy_key']
+        #validate_policy(policy, self.logger)
         self.logger.info(f"Adding policy {policy_key} to db")
         await self.database.execute(q, policy_key, json.dumps(policy))
 
