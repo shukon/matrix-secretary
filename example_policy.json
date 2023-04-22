@@ -4,9 +4,9 @@
   "flags": {
     "allowCustomUserDisplayNames": false
   },
-  "rooms": [
-    {
-      "id": "example1",
+  "rooms": {
+    "example1": {
+      "id": "",
       "alias": "#example1:example.org",
       "active": true,
       "room_name": "Example Room 1",
@@ -33,9 +33,9 @@
         }
       ]
     }
-  ],
-  "actions": [
-    {
+  },
+  "actions": {
+    "rss": {
       "name": "rss",
       "bots": [
         "@rss:t2bot.io"
@@ -51,14 +51,13 @@
         }
       ]
     }
-  ],
-  "user_groups": [
-    {
-      "id": "admins",
+  },
+  "user_groups": {
+    "admins": {
       "users": [
         "@tanesh:example.org",
         "@wander:example.org"
       ]
     }
-  ]
+  }
 }
