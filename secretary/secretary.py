@@ -146,7 +146,7 @@ class MatrixSecretary:
     async def _create_room(self, room_policy):
         room_id = await create_room(
             self.client,
-            room_policy['room_name'] if 'room_nam   e' in room_policy else 'Pretty Placeholder',
+            room_policy['room_name'] if 'room_name' in room_policy else 'Pretty Placeholder',
             room_policy['invitees'] if 'invitees' in room_policy else {},
             self.client.mxid.split(':')[1],
             is_space=room_policy['is_space'] if 'is_space' in room_policy else False,
@@ -231,7 +231,7 @@ class MatrixSecretary:
 
         pass
 
-    def add_policy(self, policy_as_json):
+    async def add_policy(self, policy_as_json):
         # TODO validate against schema
-        self._add_policy_to_db(policy_as_json)
+        await self._add_policy_to_db(policy_as_json)
         return policy_as_json['policy_key']

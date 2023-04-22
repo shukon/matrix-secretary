@@ -1,11 +1,10 @@
 import json
 import re
-from typing import Tuple
 
 from mautrix.api import Method, Path
 from mautrix.errors import MForbidden
 
-from secretary.util import get_logger, log_error
+from secretary.util import get_logger, escape_as_alias
 
 
 async def create_room(client,
@@ -35,11 +34,7 @@ async def create_room(client,
         alias = roomname
     if not topic:
         topic = "No topic set."
-    # todo: we want the alias to be sanitized as a function and probably not just here
-    umlaut_map = {ord('ä'): 'ae', ord('ü'): 'ue', ord('ö'): 'oe', ord('ß'): 'ss',
-                  ord('Ä'): 'Ae', ord('Ü'): 'Ue', ord('Ö'): 'Oe', ord(' '): '_'}
-    alias = alias.translate(umlaut_map)
-    alias = re.sub(r"[^a-zA-Z0-9_]", '', alias).lower()
+    alias = escape_as_alias(alias)
     if len(invitees) == 0:
         logger.warn('There are no invitees - this room will not be very useful like this.')
     # server = self.client.whoami().domain
@@ -95,7 +90,7 @@ async def delete_room(client, room):
         await client.leave_room(room_id=room)
         await client.forget_room(room_id=room)
     except Exception as e:
-        await log_error(e)
+        #await log_error(e)
         raise
 
 
@@ -121,4 +116,3 @@ async def _delete_aliases(client, room):
         except MForbidden as err:
             #self.logger.exception(f"Error while removing alias {alias} for room {room}: {err}")
             raise MForbidden(err.http_status, f"Error while removing alias {alias} for room {room}: {err.message}")
-

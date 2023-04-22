@@ -1,5 +1,6 @@
 import logging
 import traceback
+import re
 from typing import Tuple, Any
 
 from secretary.example_policies.minimal_policy import get_minimal_policy
@@ -33,6 +34,15 @@ def get_example_policies():
                 get_nina_policy(small=False),
                 get_minimal_policy()]
     return policies
+
+
+def escape_as_alias(alias: str) -> str:
+    umlaut_map = {ord('ä'): 'ae', ord('ü'): 'ue', ord('ö'): 'oe', ord('ß'): 'ss',
+                  ord('Ä'): 'Ae', ord('Ü'): 'Ue', ord('Ö'): 'Oe', ord(' '): '_'}
+    alias = alias.translate(umlaut_map)
+    alias = re.sub(r"[^a-zA-Z0-9_]", '', alias).lower()
+
+    return alias
 
 
 def get_logger(stream_level=logging.INFO, file_level=logging.DEBUG, log_file_path=None):
