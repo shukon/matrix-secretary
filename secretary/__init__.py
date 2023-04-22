@@ -1,6 +1,6 @@
 import json
 import traceback
-from typing import Type, Union
+from typing import Type
 
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
@@ -47,12 +47,12 @@ class Secretary(Plugin):
     async def sec(self, evt: MessageEvent) -> None:
         await evt.reply(echo("helptext", self.lang))
 
-    @sec.subcommand('set_maintenance_room', help="Set maintenance room")
-    async def set_maintenance_room(self, evt: MessageEvent) -> None:
-        reply = await self.matrix_secretary.set_maintenance_room(evt.room_id)
+    @sec.subcommand('set-notice-room', help="Set notice room")
+    async def set_notice_room(self, evt: MessageEvent) -> None:
+        reply = await self.matrix_secretary.set_notice_room(evt.room_id)
         await evt.reply(reply)
 
-    @sec.subcommand('show_policy', help="Show policy")
+    @sec.subcommand('show-policy', help="Show policy")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
     async def show_policy(self, evt: MessageEvent, policy_name: str) -> None:
         try:
@@ -63,19 +63,21 @@ class Secretary(Plugin):
         except PolicyNotFoundError as err:
             self.matrix_secretary.logger.exception(err)
             available_policies = '\n- '.join(await self.matrix_secretary.get_available_policies())
-            await evt.respond(f"Policy {policy_name} not available. Try one of:\n- {available_policies}")
+            await evt.respond(f"Policy {policy_name} not available. Try one of:")
+            # send markdown message
+            await self.client.send_markdown(evt.room_id, f"Try one of:\n- {available_policies})")
         except Exception as err:
             self.matrix_secretary.logger.exception(err)
             await evt.respond(f"{echo('generic_error', self.lang)}: \"{str(err)}\"")
             await evt.respond(f"```\n{traceback.format_exc()}\n```")
 
-    @sec.subcommand('list_policies', help="Show all policies")
+    @sec.subcommand('list-policies', help="Show all policies")
     async def list_policies(self, evt: MessageEvent) -> None:
         await self.matrix_secretary.load_example_policies()
         policies = await self.matrix_secretary.get_available_policies()
         await evt.respond("Available policies:\n  " + '\n  '.join(policies))
 
-    @sec.subcommand('ensure_policy', help="Create rooms as defined in passed json")
+    @sec.subcommand('ensure-policy', help="Create rooms as defined in passed json")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
     async def ensure_policy(self, evt: MessageEvent, policy_key: str) -> None:
         try:
@@ -84,7 +86,7 @@ class Secretary(Plugin):
         except Exception as e:
             await log_error(self.matrix_secretary.logger, e, evt=evt)
 
-    @sec.subcommand('add_policy', help="Create rooms as defined in passed json")
+    @sec.subcommand('add-policy', help="Create rooms as defined in passed json")
     @command.argument("policy_as_json", pass_raw=True, required=True, parser=non_empty_string)
     async def add_policy(self, evt: MessageEvent, policy_as_json: str) -> None:
         try:
@@ -96,20 +98,15 @@ class Secretary(Plugin):
             return
         await evt.reply("Successfully added policy")
 
-    @sec.subcommand('rm_policy', help="Remove policy and optionally delete rooms")
+    @sec.subcommand('destroy-policy', help="Remove policy and delete rooms")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
-    @command.argument("delete_rooms", required=False, parser=bool)
-    async def rm_policy(self, evt: MessageEvent, policy_key: str, delete_rooms: Union[bool, None] = False) -> None:
+    async def rm_policy(self, evt: MessageEvent, policy_key: str) -> None:
         await self.matrix_secretary.ensure_policy_destroyed(policy_key)
         await evt.respond(f"Removed policy {policy_key}")
 
-    @sec.subcommand('clear', help="Clear rooms that this is the only non-bot user in")
-    async def clear(self, evt: MessageEvent) -> None:
-        pass
-
-    @sec.subcommand('clear_all', help="Clear ALL rooms")
-    async def clear_all(self, evt: MessageEvent) -> None:
-        await self.matrix_secretary.delete_all_rooms()
+    @sec.subcommand('clean-rooms', help="Clean up unused rooms")
+    async def clean_rooms(self, evt: MessageEvent) -> None:
+        await self.matrix_secretary.delete_all_rooms(only_abandoned=True)
         await evt.respond("Cleared all rooms")
 
     @classmethod

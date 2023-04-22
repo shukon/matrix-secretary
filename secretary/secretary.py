@@ -15,7 +15,7 @@ class MatrixSecretary:
         self.database = db
         self.mxid = self.client.mxid
         self.verbose = 'debug'
-        self.maintenance_room = None
+        self.notice_room = None
         self.logger = get_logger(stream_level=logging.DEBUG if self.verbose == 'debug' else logging.INFO)
 
     async def load_example_policies(self):
@@ -65,12 +65,11 @@ class MatrixSecretary:
         self.logger.info(f"I'm currently in these rooms:\n  " + '\n  '.join(joined_rooms))
         failed = []
         for room in joined_rooms:
-            if not room == self.maintenance_room and (not only_abandoned or self._am_i_alone(room, ignore_bots=True)):
+            if room != self.notice_room and (not only_abandoned or self._am_i_alone(room, ignore_bots=True)):
                 try:
                     await delete_room(self.client, room)
-                except Exception as e:
-                    failed.append((room, e))
-
+                except Exception as err:
+                    failed.append((room, err))
         failed_str = ' \n... except for:\n  ' + '\n  '.join([f"{r}: {e}" for r, e in failed])
         msg = f"Done clearing old rooms!{failed_str if len(failed) > 0 else ''}"
         self.logger.info(msg)
@@ -84,12 +83,12 @@ class MatrixSecretary:
         result = await self.database.fetch(q)
         return [row[0] for row in result]
 
-    async def set_maintenance_room(self, room_id) -> str:
-        if self.maintenance_room == room_id:
+    async def set_notice_room(self, room_id) -> str:
+        if self.notice_room == room_id:
             return f"This room is already set as maintenance room for this session ({room_id})."
 
-        old_maintenance_room = self.maintenance_room
-        self.maintenance_room = room_id
+        old_maintenance_room = self.notice_room
+        self.notice_room = room_id
         reply = f"This room is now set as maintenance room for this session ({room_id})"
         if old_maintenance_room:
             reply += f" ... was {old_maintenance_room} before."
