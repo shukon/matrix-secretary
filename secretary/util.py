@@ -3,16 +3,27 @@ from typing import Tuple, Any
 
 from mautrix.util.async_db import UpgradeTable, Connection
 
+from secretary.example_policies.minimal_policy import get_minimal_policy
 from secretary.example_policies.nina import get_nina_policy
 
 # Database
 upgrade_table = UpgradeTable()
+
+
 @upgrade_table.register(description="Initial revision")
 async def upgrade_v1(conn: Connection) -> None:
     await conn.execute(
         """CREATE TABLE rooms (
-            uid            TEXT PRIMARY KEY,
-            matrix_room_id TEXT NOT NULL
+            policy_key        TEXT,
+            room_key  TEXT,
+            matrix_room_id   TEXT,
+            PRIMARY KEY (policy_key, room_key)
+         )""")
+    await conn.execute(
+        """CREATE TABLE policies ( 
+            policy_key        TEXT,
+            policy_json       TEXT, 
+            PRIMARY KEY (policy_key)
         )"""
     )
 
@@ -20,15 +31,18 @@ async def upgrade_v1(conn: Connection) -> None:
 def get_upgrade_table():
     return upgrade_table
 
+
 class PolicyNotFoundError(Exception):
     pass
+
 
 class DatabaseEntryNotFoundException(Exception):
     pass
 
 
-async def _log_error(self, e, room_id):
+async def log_error(e):
     pass
+
 
 def non_empty_string(x: str) -> Tuple[str, Any]:
     if not x:
@@ -37,10 +51,9 @@ def non_empty_string(x: str) -> Tuple[str, Any]:
 
 
 def get_example_policies():
-    policies = {
-        "nina_small": get_nina_policy(small=True),
-        "nina_full": get_nina_policy(small=False),
-    }
+    policies = [get_nina_policy(small=True),
+                get_nina_policy(small=False),
+                get_minimal_policy()]
     return policies
 
 

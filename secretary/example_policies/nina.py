@@ -36,8 +36,7 @@ def get_nina_policy(small=False):
                              for bl in list(ARS_by_bundesland.keys())}
 
     rooms = {'nina_warnungen':
-                 {'id': '',
-                  'alias': 'nina_warnungen',
+                 {'alias': 'nina_warnungen',
                   'room_name': "NINA Warnungen",
                   'is_space': True,
                   }}
@@ -61,7 +60,8 @@ def get_nina_policy(small=False):
 
     policy = {
         "schemaVersion": 1,
-        "actions": {
+        "policy_key": f"nina{'_small' if small else ''}",
+        "bot_actions": {
             "rss": {
                 "bots": [
                     "@bot.rss:wurzelraum.org"

@@ -1,14 +1,18 @@
 {
   "schemaVersion": 0.1,
   "identificationStamp": null,
-  "flags": {
-    "allowCustomUserDisplayNames": false
+  "policy_key": "example_policy",
+  "default_room_settings": {
+    "visibility": "public",
+    "guest_access": false,
+    "history_visibility": "invited",
+    "join_rule": "invite"
   },
   "rooms": {
     "example1": {
-      "id": "",
       "alias": "#example1:example.org",
       "active": true,
+      "avatar_url": "mxc://example.org/abc123",
       "room_name": "Example Room 1",
       "invitees": {
         "@user:server.org": 0,
@@ -24,17 +28,21 @@
       "topic": "This is an example room for the secretary bot.",
       "suggested": false,
       "join_rule": "restricted",
+      "visibility": "public",
+      "guest_access": false,
+      "history_visibility": "invited",
       "encrypt": false,
-      "actions": [
-        {
+      "bot_actions": {
+        "rss_creation": {
           "template": "rss",
-          "link": "rss-feed-link.de/feed.rss",
-          "status": "open"
+          "arguments": {
+            "link": "rss-feed-link.de/feed.rss"
+          }
         }
-      ]
+      }
     }
   },
-  "actions": {
+  "bot_actions": {
     "rss": {
       "name": "rss",
       "bots": [
@@ -44,19 +52,37 @@
         "!rss subscribe {link}",
         "!rss subscriptions"
       ],
-      "sub_actions": [
+      "sub_bot_actions": [
         {
           "template": "some_other_action",
-          "argument": "value"
+          "arguments": {
+            "key": "value"
+          }
         }
       ]
+    },
+    "some_other_action": {
+      "name": "some_other_action",
+      "bots": [
+        "@some_bot:example.org"
+      ],
+      "commands": [
+        "!some_command {argument}"
+      ],
+      "sub_bot_actions": []
     }
   },
   "user_groups": {
-    "admins": {
+    "admin_user_group": {
       "users": [
         "@tanesh:example.org",
         "@wander:example.org"
+      ]
+    },
+    "mod_user_group": {
+      "users": [
+        "@bert:example.org",
+        "@switch:example.org"
       ]
     }
   }
