@@ -1,5 +1,3 @@
-import json
-import traceback
 from typing import Type, Union
 
 from maubot import Plugin, MessageEvent
@@ -16,6 +14,7 @@ from secretary.util import non_empty_string, PolicyNotFoundError, get_upgrade_ta
 class Config(BaseProxyConfig):
     def do_update(self, helper: ConfigUpdateHelper) -> None:
         helper.copy("base_command")
+
 
 class Secretary(Plugin):
 
@@ -35,7 +34,6 @@ class Secretary(Plugin):
     async def start(self) -> None:
         await super().start()
         self.config.load_and_update()
-
 
     ############################
     # Plugin specific commands #
@@ -65,6 +63,7 @@ class Secretary(Plugin):
     @command.argument("policy_name", pass_raw=True, required=True, parser=non_empty_string)
     async def ensure_policy(self, evt: MessageEvent, policy_name: str) -> None:
         await self.matrix_secretary.ensure_policy(policy_name)
+        await evt.respond(f"Ensured policy {policy_name}")
 
     @sec.subcommand('add_policy', help="Create rooms as defined in passed json")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
@@ -74,11 +73,12 @@ class Secretary(Plugin):
     @sec.subcommand('rm_policy', help="Remove policy and optionally delete rooms")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
     @command.argument("delete_rooms", required=False, parser=bool)
-    async def rm_policy(self, evt: MessageEvent, policy_name: str, delete_rooms: Union[bool, None]=False) -> None:
+    async def rm_policy(self, evt: MessageEvent, policy_name: str, delete_rooms: Union[bool, None] = False) -> None:
         if delete_rooms:
             await self.matrix_secretary.ensure_policy_destroyed(policy_name)
         else:
             await self.matrix_secretary.forget_policy(policy_name)
+        await evt.respond(f"Removed policy {policy_name}")
 
     @sec.subcommand('clear', help="Clear rooms that this is the only non-bot user in")
     async def clear(self, evt: MessageEvent) -> None:
@@ -87,6 +87,7 @@ class Secretary(Plugin):
     @sec.subcommand('clear_all', help="Clear ALL rooms")
     async def clear_all(self, evt: MessageEvent) -> None:
         await self.matrix_secretary.delete_all_rooms()
+        await evt.respond("Cleared all rooms")
 
     @classmethod
     def get_db_upgrade_table(cls) -> UpgradeTable | None:
