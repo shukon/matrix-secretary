@@ -1,18 +1,11 @@
 import json
 import logging
-import os
-import re
-from typing import Tuple, List
 
-from maubot import Plugin
-from mautrix.api import Method, Path
-from mautrix.errors import MForbidden
-from mautrix.types import MessageType
-from mautrix.util.async_db import UpgradeTable, Connection
+from mautrix.api import Method
 
 from secretary import create_room
 from secretary.rooms import delete_room
-from secretary.util import get_example_policies, PolicyNotFoundError, get_logger, DatabaseEntryNotFoundException
+from secretary.util import get_example_policies, get_logger, DatabaseEntryNotFoundException
 
 
 class MatrixSecretary:
@@ -54,13 +47,14 @@ class MatrixSecretary:
             await self._ensure_room_bot_actions(room_id, room_policy)
 
     async def ensure_policy_destroyed(self, policy_name):
-        # ensure everything related to a policy is deleted (all rooms and users) and the policy itself is removed from db
+        # ensure everything related to a policy is deleted (all rooms and users)
+        # and the policy itself is removed from db
         pass
 
     async def forget_policy(self, policy_name):
         self.logger.info(f"Removing policy {policy_name} from db")
         q = "DELETE FROM rooms WHERE policy_key = $1"
-        await self.database.execute(q,policy_name)
+        await self.database.execute(q, policy_name)
 
     async def delete_all_rooms(self, only_abandoned=True):
         # mostly for testing, destroy everything the bot is in
@@ -79,7 +73,7 @@ class MatrixSecretary:
         self.logger.info(msg)
         return msg
 
-    async def get_policy(self, policy_key):
+    async def get_policy(self, policy_key: str) -> json:
         return await self._get_policy_from_db(policy_key)
 
     async def get_available_policies(self):
@@ -88,10 +82,22 @@ class MatrixSecretary:
         return [row[0] for row in result]
 
     async def set_maintenance_room(self, room_id) -> str:
-        pass
+        if self.maintenance_room == room_id:
+            return f"This room is already set as maintenance room for this session ({room_id})."
+
+        old_maintenance_room = self.maintenance_room
+        self.maintenance_room = room_id
+        reply = f"This room is now set as maintenance room for this session ({room_id})"
+        if old_maintenance_room:
+            reply += f" ... was {old_maintenance_room} before."
+
+        return reply
 
     async def _am_i_alone(self, room_id, ignore_bots=False):
-        pass
+        # Am I alone in this room?
+        members = await self.client.get_joined_members(room_id)
+        members = [m for m in members if not ignore_bots or not m.startswith('@bot.') or m == self.mxid]
+        return len(members) == 1 and members[0] == self.mxid
 
     async def _ensure_room_exists(self, policy_key, room_key, room_policy):
         # check if room exists in db
@@ -211,4 +217,20 @@ class MatrixSecretary:
             self.client.invite_user(room_id, user)
 
     async def _ensure_room_bot_actions(self, room_id, room_policy):
+        # if 'actions' in room_data:
+        #     # Check if actions need to be run?!
+        #     for room_action in room_data['actions']:
+        #         for bot_id in policy['actions'][room_action['template']]['bots']:
+        #             self.logger.debug(f"Inviting bot {bot_id} to {room_id}")
+        #             await self.client.invite_user(room_id, bot_id)
+        #         for cmd in policy['actions'][room_action['template']]['commands']:
+        #             cmd = cmd.format(**room_action['format']) if 'format' in room_action else cmd
+        #             self.logger.debug(f"Sending command {cmd} to {room_id}")
+        #             await self.client.send_markdown(room_id, cmd, msgtype=MessageType.TEXT, allow_html=True)
+
         pass
+
+    def add_policy(self, policy_as_json):
+        # TODO validate against schema
+        self._add_policy_to_db(policy_as_json)
+        return policy_as_json['policy_key']
