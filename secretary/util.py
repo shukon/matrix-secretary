@@ -1,35 +1,9 @@
 import logging
+import traceback
 from typing import Tuple, Any
-
-from mautrix.util.async_db import UpgradeTable, Connection
 
 from secretary.example_policies.minimal_policy import get_minimal_policy
 from secretary.example_policies.nina import get_nina_policy
-
-# Database
-upgrade_table = UpgradeTable()
-
-
-@upgrade_table.register(description="Initial revision")
-async def upgrade_v1(conn: Connection) -> None:
-    await conn.execute(
-        """CREATE TABLE rooms (
-            policy_key        TEXT,
-            room_key  TEXT,
-            matrix_room_id   TEXT,
-            PRIMARY KEY (policy_key, room_key)
-         )""")
-    await conn.execute(
-        """CREATE TABLE policies ( 
-            policy_key        TEXT,
-            policy_json       TEXT, 
-            PRIMARY KEY (policy_key)
-        )"""
-    )
-
-
-def get_upgrade_table():
-    return upgrade_table
 
 
 class PolicyNotFoundError(Exception):
@@ -40,8 +14,11 @@ class DatabaseEntryNotFoundException(Exception):
     pass
 
 
-async def log_error(e):
-    pass
+async def log_error(logger, err, evt):
+    logger.exception(err)
+    await evt.respond(f"I tried, but something went wrong: \"{err}\"")
+    await evt.respond(f"```\n{traceback.format_exc()}\n```")
+    return
 
 
 def non_empty_string(x: str) -> Tuple[str, Any]:
