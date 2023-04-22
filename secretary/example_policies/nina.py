@@ -35,11 +35,12 @@ def get_nina_policy(small=False):
                                                 k=min(len(ARS_by_bundesland[bl]), 1))
                              for bl in list(ARS_by_bundesland.keys())}
 
-    rooms = {'nina_warnungen':
-                 {'alias': 'nina_warnungen',
-                  'room_name': "NINA Warnungen",
-                  'is_space': True,
-                  }}
+    rooms = {'nina_warnungen': {
+        'alias': 'nina_warnungen',
+        'room_name': "NINA Warnungen",
+        'is_space': True,
+    }
+    }
 
     for bundesland, kreisliste in ARS_by_bundesland.items():
         rooms[bundesland] = {"id": '',
