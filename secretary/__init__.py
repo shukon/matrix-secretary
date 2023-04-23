@@ -71,9 +71,14 @@ class Secretary(Plugin):
             await evt.respond(f"{echo('generic_error', self.lang)}: \"{str(err)}\"")
             await evt.respond(f"```\n{traceback.format_exc()}\n```")
 
+    @sec.subcommand('load-sample-policies', help="Load example policies")
+    async def load_sample_policies(self, evt: MessageEvent) -> None:
+        await self.matrix_secretary.load_example_policies()
+        await evt.respond("Loaded example policies from secretary/example_policies.")
+        await self.list_policies(evt)
+
     @sec.subcommand('list-policies', help="Show all policies")
     async def list_policies(self, evt: MessageEvent) -> None:
-        await self.matrix_secretary.load_example_policies()
         policies = await self.matrix_secretary.get_available_policies()
         await evt.respond("Available policies:\n  " + '\n  '.join(policies))
 

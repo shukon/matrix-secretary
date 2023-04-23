@@ -106,16 +106,7 @@ class MatrixSecretary:
         members = [m for m in members if not ignore_bots or not m.startswith('@bot.') or m == self.mxid]
         return len(members) == 1 and members[0] == self.mxid
 
-    async def _ensure_room_exists(self, policy_key, room_key, room_policy):
-        # check if room exists in db
-        try:
-            room_id = await self._get_room_from_db(policy_key, room_key)
-        except DatabaseEntryNotFoundException:
-            # if not, create it
-            room_id = await self._create_room(room_policy)
-            # add room to db
-            await self._add_room_to_db(policy_key, room_key, room_id)
-        return room_id
+
 
     async def _add_room_to_db(self, policy_key: str, room_key: str, matrix_room_id: str) -> None:
         q = """
@@ -162,6 +153,15 @@ class MatrixSecretary:
         json_policy = json.loads(row['policy_json'])
         self.logger.info(f"Found policy {policy_key} in db: {json_policy}")
         return json_policy
+
+    async def _ensure_room_exists(self, policy_key, room_key, room_policy):
+        try:
+            room_id = await self._get_room_from_db(policy_key, room_key)
+        except DatabaseEntryNotFoundException:
+            self.logger.info(f"Room {policy_key}:{room_key} not found in db, creating it")
+            room_id = await self._create_room(room_policy)
+            await self._add_room_to_db(policy_key, room_key, room_id)
+        return room_id
 
     async def _create_room(self, room_policy):
         room_id = await create_room(
