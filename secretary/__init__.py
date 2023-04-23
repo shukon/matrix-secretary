@@ -95,6 +95,7 @@ class Secretary(Plugin):
     @sec.subcommand('add-policy', help="Create rooms as defined in passed json")
     @command.argument("policy_as_json", pass_raw=True, required=True, parser=non_empty_string)
     async def add_policy(self, evt: MessageEvent, policy_as_json: str) -> None:
+        raise NotImplementedError("This implementation is not yet tested.")
         try:
             policy_as_json = json.loads(policy_as_json)
             await self.matrix_secretary.add_policy(policy_as_json)
@@ -108,7 +109,7 @@ class Secretary(Plugin):
     async def rm_policy(self, evt: MessageEvent, policy_key: str) -> None:
         try:
             await self.matrix_secretary.ensure_policy_destroyed(policy_key)
-            await evt.respond(f"Removed policy {policy_key}")
+            await evt.respond(f"Successfully removed policy {policy_key}")
         except Exception as err:
             await log_error(self.matrix_secretary.logger, err, evt)
 
