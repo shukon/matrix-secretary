@@ -2,6 +2,7 @@ import json
 import logging
 
 from mautrix.api import Method
+from mautrix.errors import MForbidden
 
 from secretary import create_room
 from secretary.rooms import delete_room
@@ -128,7 +129,22 @@ class MatrixSecretary:
         row = await self.database.fetchrow(q, policy_key, room_key)
         if not row:
             raise DatabaseEntryNotFoundException(f"Could not find {policy_key}:{room_key} in database")
+        # am I in this room?
+        try:
+            await self.client.get_room_state(row['matrix_room_id'])
+        except MForbidden as err:
+            if err.code == 403:
+                self.logger.error(f"Room {row['matrix_room_id']} not found, removing from db")
+                await self._remove_room_from_db(policy_key, room_key)
+                raise DatabaseEntryNotFoundException(f"Could not find {policy_key}:{room_key} in database")
+            else:
+                raise err
         return row['matrix_room_id']
+
+    async def _remove_room_from_db(self, policy_key, room_key):
+        self.logger.debug(f"Removing room {policy_key}:{room_key} from db")
+        q = "DELETE FROM rooms WHERE policy_key=$1 AND room_key=$2"
+        await self.database.execute(q, policy_key, room_key)
 
     async def _add_policy_to_db(self, policy) -> None:
         q = """
