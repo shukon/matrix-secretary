@@ -44,6 +44,14 @@ def escape_as_alias(alias: str) -> str:
     return alias
 
 
+def is_matrix_room_id(string):
+    return re.compile(r"^!.*:.*$").match(string)
+
+
+def is_matrix_room_alias(string):
+    return re.compile(r"^#.*:.*$").match(string)
+
+
 def get_logger(stream_level=logging.INFO, file_level=logging.DEBUG, log_file_path=None):
     # Create a logger object
     logger = logging.getLogger(__name__)
