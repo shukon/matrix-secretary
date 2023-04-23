@@ -50,13 +50,17 @@ async def create_room(client,
     # todo handle non critical errors such as already existing aliases
     logger.debug(
         f"creating room {roomname} with alias #{alias}:{server} and invitees {invitees} and power levels {pl_override}...")
-    room_id = await client.create_room(alias_localpart=alias,
-                                       name=roomname,
+    room_id = await client.create_room(name=roomname,
                                        topic=topic,
                                        invitees=[str(k) for k in invitees.keys()],
                                        power_level_override=pl_override,
                                        creation_content=creation_content,
                                        )
+    # Set alias
+    try:
+        await client.add_room_alias(room_id, alias, override=True)
+    except MForbidden as err:
+        logger.exception(f"Failed to set alias for room {room_id}: {err}")
 
     logger.debug('updating room states...')
     parent_event_content = json.dumps({'auto_join': False, 'suggested': suggested, 'via': [server]})

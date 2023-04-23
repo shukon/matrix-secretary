@@ -58,6 +58,8 @@ class MatrixSecretary:
         self.logger.info(f"Removing policy {policy_name} from db")
         q = "DELETE FROM rooms WHERE policy_key = $1"
         await self.database.execute(q, policy_name)
+        #q = "DELETE FROM policies WHERE policy_key = $1"
+        #await self.database.execute(q, policy_name)
 
     async def delete_all_rooms(self, only_abandoned=True):
         # mostly for testing, destroy everything the bot is in
@@ -65,7 +67,9 @@ class MatrixSecretary:
         self.logger.info(f"I'm currently in these rooms:\n  " + '\n  '.join(joined_rooms))
         failed = []
         for room in joined_rooms:
-            if room != self.notice_room and (not only_abandoned or self._am_i_alone(room, ignore_bots=True)):
+            alone = await self._am_i_alone(room, ignore_bots=True)
+            if room != self.notice_room and (not only_abandoned or alone):
+                self.logger.info(f"Deleting room {room}")
                 try:
                     await delete_room(self.client, room)
                 except Exception as err:
