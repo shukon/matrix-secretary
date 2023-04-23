@@ -20,7 +20,6 @@ async def log_error(logger, err, evt):
     logger.exception(err)
     await evt.respond(f"I tried, but something went wrong: \"{err}\"")
     await evt.respond(f"```\n{traceback.format_exc()}\n```")
-    return
 
 
 def non_empty_string(x: str) -> Tuple[str, Any]:

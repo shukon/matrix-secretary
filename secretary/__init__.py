@@ -1,5 +1,4 @@
 import json
-import traceback
 from typing import Type
 
 from maubot import Plugin, MessageEvent
@@ -52,7 +51,7 @@ class Secretary(Plugin):
         reply = await self.matrix_secretary.set_notice_room(evt.room_id)
         await evt.reply(reply)
 
-    @sec.subcommand('show-policy', help="Show policy")
+    @sec.subcommand('show-policy', help="Show policy (JSON)")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
     async def show_policy(self, evt: MessageEvent, policy_name: str) -> None:
         try:
@@ -62,34 +61,36 @@ class Secretary(Plugin):
             await evt.reply(f"```\n{result}\n```", markdown=True)
         except PolicyNotFoundError as err:
             self.matrix_secretary.logger.exception(err)
-            available_policies = '\n- '.join(await self.matrix_secretary.get_available_policies())
-            await evt.respond(f"Policy {policy_name} not available. Try one of:")
-            # send markdown message
-            await self.client.send_markdown(evt.room_id, f"Try one of:\n- {available_policies})")
+            await evt.respond(f"Policy {policy_name} not available.")
+            await self.list_policies(evt)
         except Exception as err:
-            self.matrix_secretary.logger.exception(err)
-            await evt.respond(f"{echo('generic_error', self.lang)}: \"{str(err)}\"")
-            await evt.respond(f"```\n{traceback.format_exc()}\n```")
+            await log_error(self.matrix_secretary.logger, err, evt)
 
     @sec.subcommand('load-sample-policies', help="Load example policies")
     async def load_sample_policies(self, evt: MessageEvent) -> None:
-        await self.matrix_secretary.load_example_policies()
-        await evt.respond("Loaded example policies from secretary/example_policies.")
-        await self.list_policies(evt)
+        try:
+            await self.matrix_secretary.load_example_policies()
+            await evt.respond("Loaded example policies from secretary/example_policies.")
+            await self.list_policies(evt)
+        except Exception as err:
+            await log_error(self.matrix_secretary.logger, err, evt)
 
     @sec.subcommand('list-policies', help="Show all policies")
     async def list_policies(self, evt: MessageEvent) -> None:
-        policies = await self.matrix_secretary.get_available_policies()
-        await evt.respond("Available policies:\n  " + '\n  '.join(policies))
+        try:
+            policies = await self.matrix_secretary.get_available_policies()
+            await evt.respond("Available policies:\n  " + '\n  '.join(policies))
+        except Exception as err:
+            await log_error(self.matrix_secretary.logger, err, evt)
 
-    @sec.subcommand('ensure-policy', help="Create rooms as defined in passed json")
+    @sec.subcommand('ensure-policy', help="Ensures policy is implemented, creates rooms if necessary")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
     async def ensure_policy(self, evt: MessageEvent, policy_key: str) -> None:
         try:
             await self.matrix_secretary.ensure_policy(policy_key)
             await evt.reply("Policy implemented")
-        except Exception as e:
-            await log_error(self.matrix_secretary.logger, e, evt=evt)
+        except Exception as err:
+            await log_error(self.matrix_secretary.logger, err, evt)
 
     @sec.subcommand('add-policy', help="Create rooms as defined in passed json")
     @command.argument("policy_as_json", pass_raw=True, required=True, parser=non_empty_string)
@@ -98,21 +99,26 @@ class Secretary(Plugin):
             policy_as_json = json.loads(policy_as_json)
             await self.matrix_secretary.add_policy(policy_as_json)
             await self.matrix_secretary.ensure_policy(policy_as_json['policy_key'])
+            await evt.reply("Successfully added policy")
         except Exception as err:
             await log_error(self.matrix_secretary.logger, err, evt=evt)
-            return
-        await evt.reply("Successfully added policy")
 
     @sec.subcommand('destroy-policy', help="Remove policy and delete rooms")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
     async def rm_policy(self, evt: MessageEvent, policy_key: str) -> None:
-        await self.matrix_secretary.ensure_policy_destroyed(policy_key)
-        await evt.respond(f"Removed policy {policy_key}")
+        try:
+            await self.matrix_secretary.ensure_policy_destroyed(policy_key)
+            await evt.respond(f"Removed policy {policy_key}")
+        except Exception as err:
+            await log_error(self.matrix_secretary.logger, err, evt)
 
     @sec.subcommand('clean-rooms', help="Clean up unused rooms")
     async def clean_rooms(self, evt: MessageEvent) -> None:
-        await self.matrix_secretary.delete_all_rooms(only_abandoned=True)
-        await evt.respond("Cleared all rooms")
+        try:
+            await self.matrix_secretary.delete_all_rooms(only_abandoned=True)
+            await evt.respond("Cleared all rooms")
+        except Exception as err:
+            await log_error(self.matrix_secretary.logger, err, evt)
 
     @classmethod
     def get_db_upgrade_table(cls) -> UpgradeTable | None:
