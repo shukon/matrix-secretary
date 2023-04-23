@@ -6,11 +6,14 @@ Matrix-Secretary is a Maubot implementation that allows you to automate tasks in
 
 ## Features
 
+- [ ] ACL for bot-usage
 - [ ] Add policy
-- [ ] Remove policy
-  - [ ] Remove all rooms created by policy
-- [ ] Create rooms from json-policy
-  - [ ] Create room
+  - [ ] Validate policy
+- [x] Remove policy
+  - [x] Remove all rooms created by policy
+- [x] Clean up unused rooms on command
+- [x] Create rooms from json-policy
+  - [x] Create room
   - [ ] Set room name
   - [ ] Set room topic
   - [ ] Set room avatar
@@ -21,9 +24,9 @@ Matrix-Secretary is a Maubot implementation that allows you to automate tasks in
   - [ ] Set room encryption
   - [ ] Define room aliases
   - [ ] Organize rooms in spaces
-- [ ] Manage users from json-policy
-  - [ ] Invite user
-  - [ ] Set power-levels
+- [x] Manage users from json-policy
+  - [x] Invite user
+  - [x] Set power-levels
   - [ ] Kick user
   - [ ] Ban user
   - [ ] Unban user
