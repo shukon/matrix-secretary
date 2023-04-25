@@ -44,6 +44,14 @@ SCHEMA = """
             "world_readable"
           ]
         },
+        "visibility": {
+          "description": "The default visibility of new rooms.",
+          "type": "string",
+          "enum": [
+            "public",
+            "private"
+          ]
+        },
         "join_rule": {
           "description": "The default join rule of new rooms.",
           "type": "string",

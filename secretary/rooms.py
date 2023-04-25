@@ -12,7 +12,6 @@ async def create_room(client,
                       invitees,
                       is_space=False,
                       topic=None,
-                      encrypt=False,
                       logger=None,
                       ):
     if not logger:

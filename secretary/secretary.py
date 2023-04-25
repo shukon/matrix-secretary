@@ -2,12 +2,12 @@ import json
 import logging
 
 from mautrix.api import Method
-from mautrix.errors import MForbidden
+from mautrix.errors import MForbidden, MNotFound
 
 from secretary import create_room
 from secretary.rooms import delete_room
 from secretary.util import get_example_policies, get_logger, DatabaseEntryNotFoundException, escape_as_alias, \
-    is_matrix_room_id, is_matrix_room_alias
+    is_matrix_room_id, is_matrix_room_alias, is_legal
 
 
 class MatrixSecretary:
@@ -57,7 +57,9 @@ class MatrixSecretary:
                                                                                              room_key, room_policy)
         for room_key, room_policy in policy['rooms'].items():
             room_id = room_policy['tmp_matrix_room_id']
-            await self._ensure_room_config(room_id, room_policy, policy['policy_key'])
+            await self._ensure_room_config(room_id, room_policy, policy['policy_key'],
+                                           default_room_settings=policy[
+                                               'default_room_settings'] if 'default_room_settings' in policy else None)
             await self._ensure_room_users(room_id, room_policy)
             await self._ensure_room_bot_actions(room_id, room_policy)
 
@@ -78,6 +80,7 @@ class MatrixSecretary:
 
     async def add_policy(self, policy_as_json) -> str:
         # TODO validate against schema
+        # TODO Add empty dicts for default_room_settings and user_groups if they don't exist
         await self._add_policy_to_db(policy_as_json)
         return policy_as_json['policy_key']
 
@@ -99,6 +102,9 @@ class MatrixSecretary:
     ####################################################################################################################
 
     async def delete_all_rooms(self, only_abandoned=True, ignore_bots=True):
+        async def room_not_in_db(room_id):
+            q = "SELECT * FROM rooms WHERE matrix_room_id = $1"
+            return await self.database.fetchval(q, room_id) is None
         # mostly for testing, destroy everything the bot is in
         joined_rooms = await self.client.get_joined_rooms()
         self.logger.info(f"I'm currently in these rooms:\n  " + '\n  '.join(joined_rooms))
@@ -106,7 +112,7 @@ class MatrixSecretary:
         for room in joined_rooms:
             members = [m for m in await self.client.get_joined_members(room) if
                        not ignore_bots or not m.startswith('@bot.') or m == self.mxid]
-            alone = len(members) == 1 and members[0] == self.mxid
+            alone = len(members) == 1 and members[0] == self.mxid and await room_not_in_db(room)
             if room != self.notice_room and (not only_abandoned or alone):
                 self.logger.info(f"Deleting room {room}")
                 try:
@@ -134,11 +140,11 @@ class MatrixSecretary:
             room_policy['invitees'] if 'invitees' in room_policy else {},
             is_space=room_policy['is_space'] if 'is_space' in room_policy else False,
             topic=room_policy['topic'] if 'topic' in room_policy else '',
-            encrypt=room_policy['encrypted'] if 'encrypted' in room_policy else False,
         )
         return room_id
 
-    async def _ensure_room_config(self, room_id, room_policy, policy_key):
+    async def _ensure_room_config(self, room_id, room_policy, policy_key, default_room_settings=None):
+        default_room_settings = {} if default_room_settings is None else default_room_settings
         if 'room_name' in room_policy:
             await self._set_room_state(room_id, 'name', room_policy['room_name'])
         if 'alias' in room_policy:
@@ -158,14 +164,20 @@ class MatrixSecretary:
             await self._set_room_avatar(room_id, room_policy['avatar_url'])
         if 'topic' in room_policy:
             await self._set_room_state(room_id, 'topic', room_policy['topic'])
-        if 'join_rule' in room_policy:
-            await self._set_room_join_rule(room_id, room_policy['join_rule'])
-        if 'history_visibility' in room_policy:
-            await self._set_room_state(room_id, 'history_visibility', room_policy['history_visibility'])
-        if 'guest_access' in room_policy:
-            await self._set_room_state(room_id, 'guest_access', room_policy['guest_access'])
         if 'encryption' in room_policy:
             await self._set_room_encryption(room_id, room_policy['encryption'])
+
+        # values contained in default_room_settings will be overwritten by room_policy:
+        if 'join_rule' in room_policy or 'join_rule' in default_room_settings:
+            join_rules = room_policy['join_rule'] if 'join_rule' in room_policy else default_room_settings['join_rule']
+            await self._set_room_join_rules(room_id, join_rules)
+        if 'visibility' in room_policy or 'visibility' in default_room_settings:
+            visibility = room_policy['visibility'] if 'visibility' in room_policy else default_room_settings['visibility']
+            await self._set_room_visibility(room_id, visibility)
+        for key in ['history_visibility', 'guest_access', ]:
+            if key in room_policy or key in default_room_settings:
+                value = room_policy[key] if key in room_policy else default_room_settings[key]
+                await self._set_room_state(room_id, key, value)
 
     async def _ensure_parent_spaces(self, room_id, parent_spaces, suggested):
         parent_event_content = json.dumps(
@@ -180,22 +192,35 @@ class MatrixSecretary:
     async def _set_room_avatar(self, room_id, value):
         raise NotImplementedError
 
-    async def _set_room_join_rule(self, room_id, join_rule, parent_spaces=None):
-        if join_rule not in ['public', 'invite', 'knock', 'restricted', 'knock_restricted', 'private']:
-            raise ValueError(f'Not a valid join_rule: \"{join_rule}\"')
+    async def _set_room_join_rules(self, room_id, join_rule, parent_spaces=None):
+        is_legal('join_rule', join_rule)
         join_rules_content = {'join_rule': join_rule}
         if parent_spaces:
             join_rules_content['allow'] = [{'type': 'm.room_membership', 'room_id': ps} for ps in parent_spaces]
         join_rules_content = json.dumps(join_rules_content)
         await self.client.send_state_event(room_id, 'm.room.join_rules', join_rules_content, state_key="")
 
+    async def _set_room_visibility(self, room_id, visibility):
+        # Controls whether a room is published to public room directory.
+        is_legal('visibility', visibility)
+        api_link = f"/_matrix/client/r0/directory/list/room/{room_id}"
+        current_value = await self.client.api.request(Method.GET, api_link)
+        if current_value['visibility'] != visibility:
+            self.logger.debug(f"Setting room visibility of {room_id} to {visibility}")
+            await self.client.api.request(Method.PUT, api_link, {'visibility': visibility})
+        else:
+            self.logger.debug(f"Room visibility of {room_id} already set to {visibility}")
+
     async def _set_room_state(self, room_id, key, value):
-        current_value = await self.client.api.request(Method.GET,
-                                                      f"/_matrix/client/r0/rooms/{room_id}/state/m.room.{key}")
+        is_legal(key, value)
+        api_link = f"/_matrix/client/r0/rooms/{room_id}/state/m.room.{key}"
+        try:
+            current_value = await self.client.api.request(Method.GET, api_link)
+        except MNotFound:
+            current_value = {key: None}
         if current_value[key] != value:
             self.logger.debug(f"Setting room {key} of {room_id} to {value}")
-            await self.client.api.request(Method.PUT, f"/_matrix/client/r0/rooms/{room_id}/state/m.room.{key}",
-                                          content={key: value})
+            await self.client.api.request(Method.PUT, api_link, content={key: value})
         else:
             self.logger.debug(f"Room {key} of {room_id} is already {value}")
 
@@ -256,11 +281,11 @@ class MatrixSecretary:
         row = await self.database.fetchrow(q, policy_key, room_key)
         if not row:
             raise DatabaseEntryNotFoundException(f"Could not find {policy_key}:{room_key} in database")
-        # am I in this room? is it accessible, e.g. in a space i'm in?
+        # am I in this room? is it accessible, e.g. in a space I'm in?
         try:
             if self.mxid not in await self.client.get_joined_members(row['matrix_room_id']):
                 self.client.join_room(row['matrix_room_id'])
-        except MForbidden as err:
+        except MForbidden:
             self.logger.exception(f"Room {row['matrix_room_id']} not accessible, removing from db to recreate")
             await self._remove_room_from_db(policy_key, room_key)
             raise DatabaseEntryNotFoundException(f"Could not access {policy_key}:{room_key}, dropped from db, recreate")
@@ -287,5 +312,5 @@ class MatrixSecretary:
         if not row:
             raise DatabaseEntryNotFoundException(f"Could not find {policy_key} in database")
         json_policy = json.loads(row['policy_json'])
-        self.logger.debug(f"Found policy {policy_key} in db: {json_policy}")
+        self.logger.debug(f"Found policy {policy_key} in db!")
         return json_policy

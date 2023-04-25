@@ -3,6 +3,7 @@ import traceback
 import re
 from typing import Tuple, Any
 
+from secretary.example_policies.corner_cases import get_corner_cases_policy
 from secretary.example_policies.minimal_policy import get_minimal_policy
 from secretary.example_policies.nina import get_nina_policy
 from secretary.example_policies.policy_schema import get_schema
@@ -31,7 +32,9 @@ def non_empty_string(x: str) -> Tuple[str, Any]:
 def get_example_policies():
     policies = [get_nina_policy(small=True),
                 get_nina_policy(small=False),
-                get_minimal_policy()]
+                get_minimal_policy(),
+                get_corner_cases_policy(),
+                ]
     return policies
 
 
@@ -42,6 +45,17 @@ def escape_as_alias(alias: str) -> str:
     alias = re.sub(r"[^a-zA-Z0-9_]", '', alias).lower()
 
     return alias
+
+
+def is_legal(key, value):
+    legal_dict = {
+        'guest_access': ['can_join', 'forbidden'],
+        'history_visibility': ['shared', 'invited', 'joined', 'world_readable'],
+        'join_rule': ['public', 'knock', 'invite', 'private', 'restricted', 'knock_restricted'],
+        'visibility': ['public', 'private'],
+    }
+    if key in legal_dict and value not in legal_dict[key]:
+        raise ValueError(f'Not a valid {key}: \"{value}\"')
 
 
 def is_matrix_room_id(string):
