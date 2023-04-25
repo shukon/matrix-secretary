@@ -50,7 +50,7 @@ class MatrixSecretary:
                 if user.startswith('@'):
                     invitees[user] = pl
                 else:
-                    for u in policy['user_groups'][user]:
+                    for u in policy['user_groups'][user]['users']:
                         invitees[u] = pl
             policy['rooms'][room_key]['invitees'] = invitees
             policy['rooms'][room_key]['tmp_matrix_room_id'] = await self._ensure_room_exists(policy['policy_key'],
