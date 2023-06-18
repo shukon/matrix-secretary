@@ -151,6 +151,7 @@ class MatrixSecretary:
         parent_spaces = []
         parent_spaces_secret = []
 
+        # todo get room state once and then use it to check if things are already set
         if 'room_name' in room_policy:
             await self._set_room_state(room_id, 'name', room_policy['room_name'])
         if 'alias' in room_policy:
