@@ -48,12 +48,16 @@ class Secretary(Plugin):
 
     @sec.subcommand('set-notice-room', help="Set notice room")
     async def set_notice_room(self, evt: MessageEvent) -> None:
+        if not await self._permission(evt, 100):
+            return
         reply = await self.matrix_secretary.set_notice_room(evt.room_id)
         await evt.reply(reply)
 
     @sec.subcommand('show-policy', help="Show policy (JSON)")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
     async def show_policy(self, evt: MessageEvent, policy_name: str) -> None:
+        if not await self._permission(evt, 100):
+            return
         try:
             result = self.matrix_secretary.get_policy(policy_name)
             # convert dict to pretty printed json string
@@ -68,6 +72,8 @@ class Secretary(Plugin):
 
     @sec.subcommand('load-sample-policies', help="Load example policies")
     async def load_sample_policies(self, evt: MessageEvent) -> None:
+        if not await self._permission(evt, 100):
+            return
         try:
             await self.matrix_secretary.load_example_policies()
             await evt.respond("Loaded example policies from secretary/example_policies.")
@@ -77,6 +83,8 @@ class Secretary(Plugin):
 
     @sec.subcommand('list-policies', help="Show all policies")
     async def list_policies(self, evt: MessageEvent) -> None:
+        if not await self._permission(evt, -1):
+            return
         try:
             policies = await self.matrix_secretary.get_available_policies()
             await evt.respond("Available policies:\n  " + '\n  '.join(policies))
@@ -86,6 +94,8 @@ class Secretary(Plugin):
     @sec.subcommand('ensure-policy', help="Ensures policy is implemented, creates rooms if necessary")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
     async def ensure_policy(self, evt: MessageEvent, policy_key: str) -> None:
+        if not await self._permission(evt, 100):
+            return
         try:
             await self.matrix_secretary.ensure_policy(policy_key)
             await evt.reply("Policy implemented")
@@ -95,6 +105,9 @@ class Secretary(Plugin):
     @sec.subcommand('add-policy', help="Create rooms as defined in passed json")
     @command.argument("policy_as_json", pass_raw=True, required=True, parser=non_empty_string)
     async def add_policy(self, evt: MessageEvent, policy_as_json: str) -> None:
+        if not await self._permission(evt, 100):
+            return
+
         raise NotImplementedError("This implementation is not yet tested.")
         try:
             policy_as_json = json.loads(policy_as_json)
@@ -107,6 +120,9 @@ class Secretary(Plugin):
     @sec.subcommand('destroy-policy', help="Remove policy and delete rooms")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
     async def rm_policy(self, evt: MessageEvent, policy_key: str) -> None:
+        if not await self._permission(evt, 100):
+            return
+
         try:
             await self.matrix_secretary.ensure_policy_destroyed(policy_key)
             await evt.respond(f"Successfully removed policy {policy_key}")
@@ -115,6 +131,8 @@ class Secretary(Plugin):
 
     @sec.subcommand('clean-rooms', help="Clean up unused rooms")
     async def clean_rooms(self, evt: MessageEvent) -> None:
+        if not await self._permission(evt, 100):
+            return
         try:
             await self.matrix_secretary.delete_all_rooms(only_abandoned=True)
             await evt.respond("Cleared all rooms")
@@ -124,3 +142,12 @@ class Secretary(Plugin):
     @classmethod
     def get_db_upgrade_table(cls) -> UpgradeTable | None:
         return get_upgrade_table()
+
+    async def _permission(self, evt, min_level):
+        if 'permissions' not in self.config:
+            self.config['permissions'] = {}
+        sender_lvl = self.config['permissions'].get(evt.sender, -1)
+        if sender_lvl >= min_level:
+            return True
+        await evt.reply(f"You don't have permission to do that, sorry. You need to be at least level {min_level} (you're level {sender_lvl}).")
+        return False
