@@ -1,8 +1,10 @@
+import io
 import json
 from typing import Type
 
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
+from mautrix.errors import MTooLarge
 from mautrix.util.async_db import UpgradeTable
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 
@@ -55,18 +57,26 @@ class Secretary(Plugin):
 
     @sec.subcommand('show-policy', help="Show policy (JSON)")
     @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
-    async def show_policy(self, evt: MessageEvent, policy_name: str) -> None:
+    async def show_policy(self, evt: MessageEvent, policy_key: str) -> None:
         if not await self._permission(evt, 100):
             return
         try:
-            result = self.matrix_secretary.get_policy(policy_name)
+            result = await self.matrix_secretary.get_policy(policy_key)
             # convert dict to pretty printed json string
             result = json.dumps(result, indent=4)  # , sort_keys=True)
-            await evt.reply(f"```\n{result}\n```", markdown=True)
         except PolicyNotFoundError as err:
             self.matrix_secretary.logger.exception(err)
-            await evt.respond(f"Policy {policy_name} not available.")
-            await self.list_policies(evt)
+            await evt.respond(f"Policy {policy_key} not available.")
+            return
+        except Exception as err:
+            await log_error(self.matrix_secretary.logger, err, evt)
+            return
+
+        try:
+            await evt.reply(f"```\n{result}\n```", markdown=True)
+        except MTooLarge:
+            await evt.respond("Policy too large to display.")
+            await self._send_as_file(evt, result, file_name=f"{policy_key}.json")
         except Exception as err:
             await log_error(self.matrix_secretary.logger, err, evt)
 
