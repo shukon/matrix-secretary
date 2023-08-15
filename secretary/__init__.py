@@ -135,6 +135,7 @@ class Secretary(Plugin):
 
         try:
             await self.matrix_secretary.ensure_policy_destroyed(policy_key)
+            await self.matrix_secretary.forget_policy(policy_key)
             await evt.respond(f"Successfully removed policy {policy_key}")
         except Exception as err:
             await log_error(self.matrix_secretary.logger, err, evt)
@@ -161,3 +162,27 @@ class Secretary(Plugin):
             return True
         await evt.reply(f"You don't have permission to do that, sorry. You need to be at least level {min_level} (you're level {sender_lvl}).")
         return False
+
+    async def _send_as_file(self, evt: MessageEvent, file_content, file_name='text.txt') -> None:
+        room_id = evt.room_id
+
+        # Create a temporary in-memory buffer for the text file
+        try:
+            buffer = io.StringIO()
+            buffer.write(file_content)
+            buffer.seek(0)  # Reset the buffer's position to the beginning
+        except Exception as err:
+            await log_error(self.matrix_secretary.logger, err, evt)
+            return
+
+        # Send the text file as a message
+        try:
+            data = buffer.getvalue().encode('utf-8')
+            uri = await self.client.upload_media(data, mime_type="text/plain")
+            await self.client.send_file(room_id, uri, file_name=file_name)
+        except Exception as err:
+            await log_error(self.matrix_secretary.logger, err, evt)
+
+    @classmethod
+    def get_db_upgrade_table(cls) -> UpgradeTable | None:
+        return get_upgrade_table()

@@ -3,12 +3,12 @@ import logging
 
 from mautrix.api import Method
 from mautrix.errors import MForbidden, MNotFound
-from mautrix.types import RoomAvatarStateEventContent, Membership
+from mautrix.types import RoomAvatarStateEventContent, Membership, EventType
 
 from secretary import create_room
 from secretary.rooms import delete_room
 from secretary.util import get_example_policies, get_logger, DatabaseEntryNotFoundException, escape_as_alias, \
-    is_matrix_room_id, is_matrix_room_alias, is_legal
+    is_matrix_room_id, is_matrix_room_alias, is_legal, PolicyNotFoundError, log_error
 
 
 class MatrixSecretary:
@@ -87,7 +87,10 @@ class MatrixSecretary:
         return policy_as_json['policy_key']
 
     async def get_policy(self, policy_key: str) -> json:
-        return await self._get_policy_from_db(policy_key)
+        try:
+            return await self._get_policy_from_db(policy_key)
+        except DatabaseEntryNotFoundException:
+            raise PolicyNotFoundError(f"Policy {policy_key} not found.")
 
     async def get_available_policies(self):
         q = "SELECT policy_key FROM policies"
@@ -154,8 +157,8 @@ class MatrixSecretary:
         # todo get room state once and then use it to check if things are already set
         if 'room_name' in room_policy:
             await self._set_room_state(room_id, 'name', room_policy['room_name'])
-        if 'alias' in room_policy:
-            await self._set_room_alias(room_id, room_policy['alias'])
+        if 'room_alias' in room_policy:
+            await self._set_room_alias(room_id, room_policy['room_alias'])
         if 'parent_spaces' in room_policy:
             for p in room_policy['parent_spaces']:
                 if is_matrix_room_id(p):
@@ -172,7 +175,8 @@ class MatrixSecretary:
                 if is_matrix_room_id(p):
                     parent_spaces_secret.append(p)
                 elif is_matrix_room_alias(p):
-                    parent_spaces_secret.append(self.client.api.request(Method.GET, f"/_matrix/client/r0/directory/room/{p}"))
+                    parent_spaces_secret.append(
+                        self.client.api.request(Method.GET, f"/_matrix/client/r0/directory/room/{p}"))
                 else:
                     parent_spaces_secret.append(await self._get_room_from_db(policy_key, p))
             room_policy['parent_spaces_silent'] = parent_spaces_secret
@@ -249,14 +253,16 @@ class MatrixSecretary:
     async def _set_room_avatar(self, room_id, avatar_url):
         try:
             try:
-                room_info = await self.client.api.request(Method.GET, f"/_matrix/client/r0/rooms/{room_id}/state/m.room.avatar")
+                room_info = await self.client.api.request(Method.GET,
+                                                          f"/_matrix/client/r0/rooms/{room_id}/state/m.room.avatar")
             except MNotFound:
                 room_info = {}
             current_value = room_info['url'] if 'url' in room_info else None
             self.logger.debug(f"Room {room_id} has avatar {current_value}")
             if current_value != avatar_url:
                 self.logger.debug(f"Setting avatar for room {room_id} to {avatar_url}")
-                await self.client.send_state_event(room_id, 'm.room.avatar', RoomAvatarStateEventContent(url=avatar_url))
+                await self.client.send_state_event(room_id, 'm.room.avatar',
+                                                   RoomAvatarStateEventContent(url=avatar_url))
             else:
                 self.logger.debug(f"Room {room_id} already has avatar {avatar_url}")
         except MForbidden as err:
@@ -290,11 +296,24 @@ class MatrixSecretary:
     async def _ensure_room_users(self, room_id, room_policy):
         self.logger.debug(f"Ensuring users in room {room_id}: {room_policy['invitees']}")
         # Get room member list
+        room_members = await self.client.get_joined_members(room_id)
+        self.logger.debug(f"Room {room_id} has members {room_members}")
         for user in room_policy['invitees']:
-            room_members = await self.client.get_joined_members(room_id)
-            if user not in room_members or room_members[user]['membership'] not in [Membership.JOIN, Membership.INVITE]:
-                self.logger.debug(f"Inviting user {user} to {room_id}")
+            if user in room_members:
+                membership = room_members[user]['membership']
+            else:
+                membership = await self._get_user_membership(room_id, user)
+
+            if membership in [Membership.JOIN, Membership.INVITE, Membership.KNOCK, 'join', 'invite', 'knock']:
+                self.logger.debug(f"User {user} is already in {room_id} (or in the process of joining) (membership: {membership})")
+            elif membership in [Membership.LEAVE, 'leave']:
+                self.logger.debug(f"User {user} left {room_id} before (or was kicked) (membership: {membership})")
+            elif membership in [Membership.BAN, 'ban']:
+                self.logger.debug(f"User {user} is banned in {room_id} (membership: {membership})")
+            else:
+                self.logger.debug(f"Inviting user {user} to {room_id} (membership before: {membership})")
                 await self.client.invite_user(room_id, user)
+
 
     async def _ensure_room_bot_actions(self, room_id, room_policy):
         # if 'actions' in room_data:
@@ -357,4 +376,14 @@ class MatrixSecretary:
         json_policy = json.loads(row['policy_json'])
         self.logger.debug(f"Found policy {policy_key} in db!")
         return json_policy
+
+    async def _get_user_membership(self, room_id, user_id):
+        # Get state-event for user membership
+        try:
+            m_event = await self.client.get_state_event(room_id, "m.room.member", user_id)
+            self.logger.debug(f"Got state event for {user_id} in {room_id}: {m_event}")
+            return m_event['membership']
+        except MNotFound:
+            self.logger.debug(f"Could not get membership state event for {user_id} in {room_id}: Not found")
+            return False
 

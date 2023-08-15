@@ -2,6 +2,12 @@ def get_minimal_policy():
     return {
         "policy_key": "minimal_policy",
         "policy_description": "This is a minimal policy that creates a single room with a single user.",
+         "default_room_settings": {
+            "visibility": "private",
+            "guest_access": "forbidden",
+            "history_visibility": "invited",
+            "join_rule": "public",
+        },
         "rooms": {
             "spaaaaaaace": {
                 "room_name": "Space",
