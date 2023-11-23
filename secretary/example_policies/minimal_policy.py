@@ -35,7 +35,6 @@ def get_minimal_policy():
                 'parent_spaces': ['spaaaaaaace', 'solar_system'],
                 'history_visibility': 'invited',
                 'guest_access': 'can_join',
-                'encryption': True,
             },
         },
     }
