@@ -13,7 +13,7 @@ from secretary.database import get_upgrade_table
 from secretary.rooms import create_room
 from secretary.secretary import MatrixSecretary
 from secretary.translations import echo
-from secretary.util import non_empty_string, PolicyNotFoundError, log_error, FileTooLargeError, WrongContentTypeError
+from secretary.util import non_empty_string, PolicyNotFoundError, log_error
 
 
 class Config(BaseProxyConfig):
