@@ -43,8 +43,8 @@ class MatrixSecretary:
             await self.ensure_policy(p)
         pass
 
-    async def ensure_policy(self, policy_name):
-        policy = await self.get_policy(policy_name)
+    async def ensure_policy(self, policy_key):
+        policy = await self.get_policy(policy_key)
         for room_key, room_policy in policy['rooms'].items():
             invitees = {}
             if 'invitees' in room_policy:
@@ -83,7 +83,7 @@ class MatrixSecretary:
         q = "DELETE FROM rooms WHERE policy_key = $1"
         await self.database.execute(q, policy_name)
         # q = "DELETE FROM policies WHERE policy_key = $1"
-        # await self.database.execute(q, policy_name)
+        # await self.database.execute(q, policy_key)
 
     async def add_policy(self, policy_as_json) -> str:
         # TODO validate against schema
@@ -317,7 +317,8 @@ class MatrixSecretary:
                 membership = await self._get_user_membership(room_id, user)
 
             if membership in [Membership.JOIN, Membership.INVITE, Membership.KNOCK, 'join', 'invite', 'knock']:
-                self.logger.debug(f"User {user} is already in {room_id} (or in the process of joining) (membership: {membership})")
+                self.logger.debug(
+                    f"User {user} is already in {room_id} (or in the process of joining) (membership: {membership})")
             elif membership in [Membership.LEAVE, 'leave']:
                 self.logger.debug(f"User {user} left {room_id} before (or was kicked) (membership: {membership})")
             elif membership in [Membership.BAN, 'ban']:

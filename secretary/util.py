@@ -65,11 +65,14 @@ def is_matrix_room_id(string):
 def is_matrix_room_alias(string):
     return re.compile(r"^#.*:.*$").match(string)
 
+
 def is_legal_http_url(string):
     return re.compile(r"^https?://.*$").match(string)
 
+
 def is_legal_mxc_url(string):
     return re.compile(r"^mxc://.*$").match(string)
+
 
 def get_logger(stream_level=logging.INFO, file_level=logging.DEBUG, log_file_path=None):
     # Create a logger object
