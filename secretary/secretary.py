@@ -55,15 +55,20 @@ class MatrixSecretary:
                         for u in policy['user_groups'][user]['users']:
                             invitees[u] = pl
             policy['rooms'][room_key]['invitees'] = invitees
-            policy['rooms'][room_key]['tmp_matrix_room_id'] = await self._ensure_room_exists(policy['policy_key'],
-                                                                                             room_key, room_policy)
+            policy['rooms'][room_key]['room_id'] = await self._ensure_room_exists(policy['policy_key'],
+                                                                                  room_key, room_policy,
+                                                                                  existing_room_id=room_policy['room_id'] if 'room_id' in room_policy else None)
         for room_key, room_policy in policy['rooms'].items():
-            room_id = room_policy['tmp_matrix_room_id']
+            room_id = room_policy['room_id']
             await self._ensure_room_config(room_id, room_policy, policy['policy_key'],
                                            default_room_settings=policy['default_room_settings'] if
                                            'default_room_settings' in policy else None)
             await self._ensure_room_users(room_id, room_policy)
             await self._ensure_room_bot_actions(room_id, room_policy)
+
+        # add implemented policy to db with extended user groups and actual room ids
+        policy['policy_key'] = '__' + policy['policy_key']
+        await self._add_policy_to_db(policy)
 
     async def ensure_policy_destroyed(self, policy_name):
         # Get all rooms related to this policy
@@ -130,12 +135,19 @@ class MatrixSecretary:
         self.logger.info(msg)
         return msg
 
-    async def _ensure_room_exists(self, policy_key, room_key, room_policy):
+    async def _ensure_room_exists(self, policy_key, room_key, room_policy, existing_room_id=None):
         try:
+            # Is room already in db?
             room_id = await self._get_room_from_db(policy_key, room_key)
+            if existing_room_id is not None and existing_room_id != room_id:
+                raise Exception(f"Room {policy_key}:{room_key} has changed room_id, this is not supported")
         except DatabaseEntryNotFoundException:
-            self.logger.info(f"Room {policy_key}:{room_key} not found in db, creating it")
-            room_id = await self._create_room(room_policy)
+            # Room not in db, create it or add it if existing_room_id is passed
+            if existing_room_id is None:
+                self.logger.info(f"Room {policy_key}:{room_key} not found in db, creating it")
+                room_id = await self._create_room(room_policy)
+            else:
+                room_id = existing_room_id
             await self._add_room_to_db(policy_key, room_key, room_id)
         return room_id
 

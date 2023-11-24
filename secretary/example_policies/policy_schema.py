@@ -84,6 +84,10 @@ SCHEMA = """
             "description": "The name of the room.",
             "type": "string"
           },
+          "room_id": {
+            "description": "The Matrix room ID for the room.",
+            "type": "string",
+          },
           "invitees": {
             "description": "A mapping of users/user groups to their power levels for this room.",
             "type": "object",
