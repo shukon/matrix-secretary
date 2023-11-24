@@ -80,6 +80,31 @@ class Secretary(Plugin):
         except Exception as err:
             await log_error(self.matrix_secretary.logger, err, evt)
 
+    @sec.subcommand('export-policy', help="Export policy as file (JSON)")
+    @command.argument("policy_key", pass_raw=True, required=True, parser=non_empty_string)
+    async def export_policy(self, evt: MessageEvent, policy_key: str) -> None:
+        if not await self._permission(evt, 100):
+            return
+        try:
+            policy_original = await self.matrix_secretary.get_policy(policy_key, export_mode=False)
+            policy_processed = await self.matrix_secretary.get_policy(policy_key, export_mode=True)
+            policy_original = json.dumps(policy_original, indent=4)
+            policy_processed = json.dumps(policy_processed, indent=4, sort_keys=True)
+        except PolicyNotFoundError as err:
+            self.matrix_secretary.logger.exception(err)
+            await evt.respond(f"Policy {policy_key} not available.")
+            return
+        except Exception as err:
+            await log_error(self.matrix_secretary.logger, err, evt)
+            return
+
+        try:
+            await evt.respond("Export successful.")
+            await self._send_as_file(evt, policy_original, file_name=f"{policy_key}_original.json")
+            await self._send_as_file(evt, policy_processed, file_name=f"{policy_key}_processed.json")
+        except Exception as err:
+            await log_error(self.matrix_secretary.logger, err, evt)
+
     @sec.subcommand('load-sample-policies', help="Load example policies")
     async def load_sample_policies(self, evt: MessageEvent) -> None:
         if not await self._permission(evt, 100):

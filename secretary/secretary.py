@@ -91,16 +91,21 @@ class MatrixSecretary:
         await self._add_policy_to_db(policy_as_json)
         return policy_as_json['policy_key']
 
-    async def get_policy(self, policy_key: str) -> json:
+    async def get_policy(self, policy_key: str, export_mode=False) -> json:
+        if export_mode:
+            policy_key = '__' + policy_key
         try:
-            return await self._get_policy_from_db(policy_key)
+            result = await self._get_policy_from_db(policy_key)
+            if export_mode:
+                result['policy_key'] = result['policy_key'][2:]
+            return result
         except DatabaseEntryNotFoundException:
             raise PolicyNotFoundError(f"Policy {policy_key} not found.")
 
     async def get_available_policies(self):
         q = "SELECT policy_key FROM policies"
         result = await self.database.fetch(q)
-        return [row[0] for row in result]
+        return [row[0] for row in result if not row[0].startswith('__')]
 
     async def load_example_policies(self):
         policies = get_example_policies()
