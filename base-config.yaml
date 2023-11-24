@@ -1,6 +1,4 @@
 # Base command without the prefix (!).
 base_command: sec
 permissions:
-  "@admin:example.org": 100
-  "@mod:example.org": 50
-  "@user:example.org": 0
+  "@shukon:wurzelraum.org": 100

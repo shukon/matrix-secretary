@@ -25,8 +25,8 @@ def get_minimal_policy():
                 },
             },
             "neptune": {
-                "room_name": "a rooms of one's own",
-                "alias": "e xample_neptune",
+                "room_name": "Neptune",
+                "alias": "example_neptune",
                 "topic": "It's all about ice giants.",
                 "invitees": {
                     "@shukon:wurzelraum.org": 100,
@@ -35,6 +35,15 @@ def get_minimal_policy():
                 'parent_spaces': ['spaaaaaaace', 'solar_system'],
                 'history_visibility': 'invited',
                 'guest_access': 'can_join',
+            },
+            "jupiter": {
+                "room_name": "Jupiter123",
+                "alias": "example_jupiter",
+                "topic": "It's all about Jupiter.",
+                "invitees": {
+                    "@shukon:wurzelraum.org": 100,
+                },
+                'room_id': "!VMuMvMYVMMsXpelCnF:wurzelraum.org",
             },
         },
     }
