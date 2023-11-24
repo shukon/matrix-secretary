@@ -88,6 +88,8 @@ class MatrixSecretary:
     async def add_policy(self, policy_as_json) -> str:
         # TODO validate against schema
         # TODO Add empty dicts for default_room_settings and user_groups if they don't exist
+        # TODO validate room_ids if passed
+        # TODO validate that policy key doesn't start with '__'
         await self._add_policy_to_db(policy_as_json)
         return policy_as_json['policy_key']
 

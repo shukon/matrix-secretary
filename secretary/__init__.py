@@ -5,6 +5,7 @@ from typing import Type
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 from mautrix.errors import MTooLarge
+from mautrix.types import MediaMessageEventContent
 from mautrix.util.async_db import UpgradeTable
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 
@@ -12,7 +13,7 @@ from secretary.database import get_upgrade_table
 from secretary.rooms import create_room
 from secretary.secretary import MatrixSecretary
 from secretary.translations import echo
-from secretary.util import non_empty_string, PolicyNotFoundError, log_error
+from secretary.util import non_empty_string, PolicyNotFoundError, log_error, FileTooLargeError, WrongContentTypeError
 
 
 class Config(BaseProxyConfig):
@@ -138,16 +139,34 @@ class Secretary(Plugin):
             await log_error(self.matrix_secretary.logger, err, evt)
 
     @sec.subcommand('add-policy', help="Create rooms as defined in passed json")
-    @command.argument("policy_as_json", pass_raw=True, required=True, parser=non_empty_string)
+    @command.argument("policy_as_json", pass_raw=True, required=False, parser=non_empty_string)
     async def add_policy(self, evt: MessageEvent, policy_as_json: str) -> None:
         if not await self._permission(evt, 100):
             return
 
-        raise NotImplementedError("This implementation is not yet tested.")
-        try:
+        if policy_as_json:
             policy_as_json = json.loads(policy_as_json)
+        else:
+            # check if it's a reply to a message with a file
+            try:
+                reply_to = evt.content.relates_to.in_reply_to
+                if not reply_to:
+                    await evt.reply("No policy given. You can either pass a json string or reply to a message with a file.")
+                    return
+                ref_evt = await self.matrix_secretary.client.get_event(evt.room_id, reply_to.event_id)
+                if isinstance(ref_evt.content, MediaMessageEventContent) and str(ref_evt.content.msgtype) == 'm.file':
+                    policy_as_json = await self.matrix_secretary.client.download_media(ref_evt.content.url)
+                    policy_as_json = json.loads(policy_as_json)
+                    await evt.reply(f"Using policy from reply: {policy_as_json['policy_key']}.")
+                else:
+                    #await evt.reply(f"Reply is not a file: {ref_evt.content}.")
+                    await evt.reply("No policy given. If you want to use a file, reply to a message with a file.")
+                    return
+            except Exception as err:
+                await log_error(self.matrix_secretary.logger, err, evt)
+
+        try:
             await self.matrix_secretary.add_policy(policy_as_json)
-            await self.matrix_secretary.ensure_policy(policy_as_json['policy_key'])
             await evt.reply("Successfully added policy")
         except Exception as err:
             await log_error(self.matrix_secretary.logger, err, evt=evt)

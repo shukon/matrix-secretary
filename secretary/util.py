@@ -1,7 +1,10 @@
+import json
 import logging
 import traceback
 import re
 from typing import Tuple, Any
+
+import aiohttp
 
 from secretary.example_policies.corner_cases import get_corner_cases_policy
 from secretary.example_policies.minimal_policy import get_minimal_policy
@@ -17,6 +20,14 @@ class DatabaseEntryNotFoundException(Exception):
     pass
 
 
+class FileTooLargeError(Exception):
+    pass
+
+
+class WrongContentTypeError(Exception):
+    pass
+
+
 async def log_error(logger, err, evt):
     logger.exception(err)
     await evt.respond(f"I tried, but something went wrong: \"{err}\"")
@@ -27,6 +38,27 @@ def non_empty_string(x: str) -> Tuple[str, Any]:
     if not x:
         return x, None
     return "", x
+
+
+async def download_file(url):
+    max_file_size_mb = 10
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, ) as response:
+            if response.status == 200:
+                content_type = response.headers.get('content-type', '').lower()
+                content_length = response.headers.get('content-length')
+
+                # Check if the content length is within the limit
+                if content_length and int(content_length) / (1024 * 1024) > max_file_size_mb:
+                    file_size = int(content_length) / (1024 * 1024)
+                    raise FileTooLargeError(
+                        f"File size of {file_size} exceeds the maximum allowed size of {max_file_size_mb} MB.")
+
+                # Check if the content type is JSON
+                if 'json' in content_type:
+                    return await response.json(loads=json.loads)
+                else:
+                    raise WrongContentTypeError(f"Content type {content_type} is not JSON.")
 
 
 def get_example_policies():
