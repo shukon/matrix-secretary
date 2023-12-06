@@ -50,10 +50,10 @@ class MatrixSecretary:
             if 'invitees' in room_policy:
                 for user, pl in room_policy['invitees'].items():
                     if user.startswith('@'):
-                        invitees[user] = pl
+                        invitees[user] = max(invitees.get(user, -1), pl)
                     else:
                         for u in policy['user_groups'][user]['users']:
-                            invitees[u] = pl
+                            invitees[u] = max(invitees.get(u, -1), pl)
             policy['rooms'][room_key]['invitees'] = invitees
             policy['rooms'][room_key]['room_id'] = await self._ensure_room_exists(policy['policy_key'],
                                                                                   room_key, room_policy,
