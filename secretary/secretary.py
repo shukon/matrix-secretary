@@ -316,24 +316,28 @@ class MatrixSecretary:
         self.logger.debug(f"Ensuring users in room {room_id}: {room_policy['invitees']}")
         # Get room member list
         room_members = await self.client.get_joined_members(room_id)
-        self.logger.debug(f"Room {room_id} has members {room_members}")
-        for user in room_policy['invitees']:
+        self.logger.debug(f"Room {room_id} has {len(room_members)} members")
+
+        power_levels = await self.client.get_state_event(room_id, EventType.ROOM_POWER_LEVELS, "")
+
+        for user, pl in room_policy['invitees'].items():
+            # Check if user is in room_members-list, otherwise retrieve membership via api call
             if user in room_members:
                 membership = room_members[user]['membership']
             else:
                 membership = await self._get_user_membership(room_id, user)
 
-            if membership in [Membership.JOIN, Membership.INVITE, Membership.KNOCK, 'join', 'invite', 'knock']:
-                self.logger.debug(
-                    f"User {user} is already in {room_id} (or in the process of joining) (membership: {membership})")
-            elif membership in [Membership.LEAVE, 'leave']:
-                self.logger.debug(f"User {user} left {room_id} before (or was kicked) (membership: {membership})")
-            elif membership in [Membership.BAN, 'ban']:
-                self.logger.debug(f"User {user} is banned in {room_id} (membership: {membership})")
-            else:
+            # Ensure membership and powerlevels
+            if not membership:
                 self.logger.debug(f"Inviting user {user} to {room_id} (membership before: {membership})")
                 await self.client.invite_user(room_id, user)
+                power_levels.set_user_level(user, pl)
+            else:
+                self.logger.debug(f"User {user} was already invited to {room_id} (current membership: {membership})")
+                if power_levels.get_user_level(user) < pl:
+                    power_levels.ensure_user_level(user, pl)
 
+        await self.client.send_state_event(room_id, EventType.ROOM_POWER_LEVELS, power_levels)
 
     async def _ensure_room_bot_actions(self, room_id, room_policy):
         # if 'actions' in room_data:
